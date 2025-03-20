@@ -101,6 +101,14 @@ int32_t HX711::Read(TickType_t tick_to_wait) {
         vTaskDelay(1);
     }
 
+    // Begin of critical section.
+    // Critical sections are used as a valid protection method
+    // against simultaneous access in vanilla FreeRTOS.
+    // Disable the scheduler and call portDISABLE_INTERRUPTS. This prevents
+    // context switches and servicing of ISRs during a critical section.
+    portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+    portENTER_CRITICAL(&mux);
+
     int32_t value = 0;
     ESP_ERROR_CHECK(gptimer_set_raw_count(gptimer_, 0));
     ESP_ERROR_CHECK(gptimer_start(gptimer_));
@@ -124,6 +132,9 @@ int32_t HX711::Read(TickType_t tick_to_wait) {
         dedic_gpio_bundle_write(clock_, 1, 0);  // falling edge
     }
     ESP_ERROR_CHECK(gptimer_stop(gptimer_));
+
+    // End of critical section.
+    portEXIT_CRITICAL(&mux);
 
     // propagate the sign bit
     if (value >= (1 << 23)) {
